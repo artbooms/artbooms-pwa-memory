@@ -16,12 +16,42 @@ HEADERS = {
     )
 }
 
-NS = {
-    "sm": "http://www.sitemaps.org/schemas/sitemap/0.9"
-}
+NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 
-def clean_html_fragment(fragment_html: str) -> str:
+def normalize_url(url: str) -> str:
+    if not url:
+        return ""
+    url = url.strip().replace("http://", "https://")
+    if "images.squarespace-cdn.com" in url and "format=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}format=1500w"
+    return url
+
+
+def normalize_title(title: str) -> str:
+    title = (title or "").strip()
+    title = re.sub(r"\s+—\s+ARTBOOMS\s+—\s+ARTBOOMS\s*$", "", title, flags=re.I)
+    title = re.sub(r"\s+—\s+ARTBOOMS\s*$", "", title, flags=re.I)
+    return title.strip()
+
+
+def img_src(tag):
+    for attr in ("src", "data-src", "data-image"):
+        val = tag.get(attr)
+        if val:
+            return normalize_url(val)
+
+    srcset = tag.get("srcset") or tag.get("data-srcset")
+    if srcset:
+        parts = [p.strip().split(" ")[0] for p in srcset.split(",") if p.strip()]
+        if parts:
+            return normalize_url(parts[-1])
+
+    return ""
+
+
+def clean_text_html(fragment_html: str) -> str:
     soup = BeautifulSoup(fragment_html, "html.parser")
     allowed = {"p", "h2", "h3", "h4", "blockquote", "ul", "ol", "li", "strong", "em", "br"}
 
@@ -34,18 +64,14 @@ def clean_html_fragment(fragment_html: str) -> str:
     return str(soup)
 
 
-def normalize_title(title: str) -> str:
-    if not title:
+def make_figure(img_url: str, caption: str = "", alt: str = "") -> str:
+    img_url = normalize_url(img_url)
+    if not img_url:
         return ""
-    title = re.sub(r"\s+—\s+ARTBOOMS\s+—\s+ARTBOOMS\s*$", " — ARTBOOMS", title.strip(), flags=re.I)
-    title = re.sub(r"\s+—\s+ARTBOOMS\s*$", "", title.strip(), flags=re.I)
-    return title.strip()
 
-
-def normalize_url(url: str) -> str:
-    if not url:
-        return ""
-    return url.strip().replace("http://", "https://")
+    caption_html = f"<figcaption>{caption}</figcaption>" if caption else ""
+    alt_attr = alt.replace('"', "&quot;") if alt else ""
+    return f'<figure><img src="{img_url}" alt="{alt_attr}">{caption_html}</figure>'
 
 
 def extract_article_memory(article_url: str, title: str, pub_date: str):
@@ -59,44 +85,69 @@ def extract_article_memory(article_url: str, title: str, pub_date: str):
         description = meta_desc["content"].strip()
 
     image = ""
-    thumb = soup.find("meta", attrs={"itemprop": "thumbnailUrl"})
-    if thumb and thumb.get("content"):
-        image = thumb["content"].strip()
-    else:
-        image_meta = soup.find("meta", attrs={"itemprop": "image"})
-        if image_meta and image_meta.get("content"):
-            image = image_meta["content"].strip()
-
-    if not image:
-        og_image = soup.find("meta", attrs={"property": "og:image"})
-        if og_image and og_image.get("content"):
-            image = og_image["content"].strip()
-
-    image = normalize_url(image)
-
-    selectors = [
-        "article .sqs-html-content",
-        ".blog-item-wrapper .sqs-html-content",
-        "main .sqs-html-content",
-        ".entry-content .sqs-html-content"
-    ]
-
-    blocks = []
-    container_nodes = []
-    for sel in selectors:
-        container_nodes = soup.select(sel)
-        if container_nodes:
+    for selector in [
+        {"itemprop": "thumbnailUrl"},
+        {"itemprop": "image"},
+        {"property": "og:image"}
+    ]:
+        tag = soup.find("meta", attrs=selector)
+        if tag and tag.get("content"):
+            image = normalize_url(tag["content"])
             break
 
-    for node in container_nodes:
-        for el in node.find_all(["p", "h2", "h3", "h4", "blockquote", "ul", "ol"], recursive=True):
-            txt = el.get_text(" ", strip=True)
-            if txt:
-                blocks.append(clean_html_fragment(str(el)))
+    selectors = [
+        "article",
+        ".blog-item-wrapper",
+        "main",
+        ".entry-content"
+    ]
+
+    root = None
+    for sel in selectors:
+        root = soup.select_one(sel)
+        if root:
+            break
+
+    if not root:
+        root = soup.body or soup
+
+    blocks = []
+    seen_images = set()
+
+    for el in root.find_all(["p", "h2", "h3", "h4", "blockquote", "ul", "ol", "figure", "img"], recursive=True):
+        if el.name == "img":
+            src = img_src(el)
+            if src and src not in seen_images:
+                seen_images.add(src)
+                blocks.append(make_figure(src, alt=el.get("alt", "")))
+            continue
+
+        if el.name == "figure":
+            img = el.find("img")
+            if not img:
+                continue
+            src = img_src(img)
+            if not src or src in seen_images:
+                continue
+            seen_images.add(src)
+            cap = ""
+            cap_tag = el.find(["figcaption", "p"])
+            if cap_tag:
+                cap = cap_tag.get_text(" ", strip=True)
+            blocks.append(make_figure(src, cap, img.get("alt", "")))
+            continue
+
+        text = el.get_text(" ", strip=True)
+        if text:
+            blocks.append(clean_text_html(str(el)))
 
     content_html = "\n".join(blocks).strip()
     if not content_html and description:
         content_html = f"<p>{description}</p>"
+
+    all_images = list(seen_images)
+    if image and image not in all_images:
+        all_images.insert(0, image)
 
     return {
         "url": normalize_url(article_url),
@@ -104,6 +155,7 @@ def extract_article_memory(article_url: str, title: str, pub_date: str):
         "display_date": pub_date[:10] if pub_date else "",
         "excerpt": description,
         "image": image,
+        "images": all_images,
         "content_html": content_html
     }
 
@@ -137,15 +189,10 @@ def main():
             "publication_date": pub_date
         })
 
-    articles = []
-    for item in urls[:3]:
-        articles.append(
-            extract_article_memory(
-                item["url"],
-                item["title"],
-                item["publication_date"]
-            )
-        )
+    articles = [
+        extract_article_memory(item["url"], item["title"], item["publication_date"])
+        for item in urls[:3]
+    ]
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
