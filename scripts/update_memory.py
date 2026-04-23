@@ -1,4 +1,5 @@
 import json
+import re
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
@@ -33,6 +34,20 @@ def clean_html_fragment(fragment_html: str) -> str:
     return str(soup)
 
 
+def normalize_title(title: str) -> str:
+    if not title:
+        return ""
+    title = re.sub(r"\s+—\s+ARTBOOMS\s+—\s+ARTBOOMS\s*$", " — ARTBOOMS", title.strip(), flags=re.I)
+    title = re.sub(r"\s+—\s+ARTBOOMS\s*$", "", title.strip(), flags=re.I)
+    return title.strip()
+
+
+def normalize_url(url: str) -> str:
+    if not url:
+        return ""
+    return url.strip().replace("http://", "https://")
+
+
 def extract_article_memory(article_url: str, title: str, pub_date: str):
     resp = requests.get(article_url, headers=HEADERS, timeout=25)
     resp.raise_for_status()
@@ -51,6 +66,13 @@ def extract_article_memory(article_url: str, title: str, pub_date: str):
         image_meta = soup.find("meta", attrs={"itemprop": "image"})
         if image_meta and image_meta.get("content"):
             image = image_meta["content"].strip()
+
+    if not image:
+        og_image = soup.find("meta", attrs={"property": "og:image"})
+        if og_image and og_image.get("content"):
+            image = og_image["content"].strip()
+
+    image = normalize_url(image)
 
     selectors = [
         "article .sqs-html-content",
@@ -77,8 +99,8 @@ def extract_article_memory(article_url: str, title: str, pub_date: str):
         content_html = f"<p>{description}</p>"
 
     return {
-        "url": article_url,
-        "title": title,
+        "url": normalize_url(article_url),
+        "title": normalize_title(title),
         "display_date": pub_date[:10] if pub_date else "",
         "excerpt": description,
         "image": image,
