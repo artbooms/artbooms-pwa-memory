@@ -1,0 +1,36 @@
+name: Update PWA Memory
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/20 * * * *"
+
+jobs:
+  update-memory:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 lxml
+
+      - name: Update memory data
+        run: python scripts/update_memory.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "artbooms-memory-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add memory-data.json
+          git diff --cached --quiet || git commit -m "Update PWA memory data"
+
+      - name: Push changes
+        run: git push
