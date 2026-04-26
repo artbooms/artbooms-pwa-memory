@@ -1,0 +1,43 @@
+name: Notify OneSignal from RSS
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: artbooms-onesignal-rss-notifier
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run RSS notifier
+        env:
+          ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
+        run: |
+          python3 scripts/notify_onesignal_from_rss.py
+
+      - name: Commit updated notification state
+        run: |
+          if git diff --quiet -- data/last-notified.json; then
+            echo "No notification state changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/last-notified.json
+          git commit -m "Update OneSignal RSS notification state"
+          git push
