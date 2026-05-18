@@ -3,7 +3,6 @@ import html
 import json
 import os
 import re
-import sys
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -171,6 +170,31 @@ def save_state(article, notified):
     )
 
 
+def parse_onesignal_response(status, response_body):
+    try:
+        data = json.loads(response_body or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Risposta OneSignal non valida: status {status}, body: {response_body}"
+        ) from exc
+
+    errors = data.get("errors")
+    notification_id = str(data.get("id", "") or "").strip()
+
+    if status < 200 or status >= 300:
+        raise RuntimeError(f"OneSignal HTTP {status}: {response_body}")
+
+    if errors:
+        raise RuntimeError(f"OneSignal ha restituito errori: {errors}")
+
+    if not notification_id:
+        raise RuntimeError(
+            f"OneSignal non ha creato una notifica valida: id vuoto. Body: {response_body}"
+        )
+
+    return data
+
+
 def send_onesignal_push(article):
     api_key = os.environ.get("ONESIGNAL_REST_API_KEY", "").strip()
 
@@ -214,7 +238,8 @@ def send_onesignal_push(article):
         with urllib.request.urlopen(request, timeout=30) as response:
             response_body = response.read().decode("utf-8", errors="replace")
             log(f"OneSignal response {response.status}: {response_body}")
-            return response.status, response_body
+            return parse_onesignal_response(response.status, response_body)
+
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"OneSignal HTTP {exc.code}: {error_body}") from exc
@@ -241,7 +266,9 @@ def main():
         return 0
 
     log("Nuovo articolo rilevato: invio push OneSignal.")
-    send_onesignal_push(article)
+    onesignal_result = send_onesignal_push(article)
+
+    log(f"Notifica OneSignal creata con id: {onesignal_result.get('id')}")
     save_state(article, notified=True)
     log("Notifica inviata e stato aggiornato.")
     return 0
