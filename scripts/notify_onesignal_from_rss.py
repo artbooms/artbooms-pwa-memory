@@ -204,7 +204,7 @@ def send_onesignal_push(article):
     payload = {
         "app_id": ONESIGNAL_APP_ID,
         "target_channel": "push",
-        "included_segments": ["Subscribed Users"],
+        "included_segments": ["Total Subscriptions"],
         "headings": {"it": "ARTBOOMS", "en": "ARTBOOMS"},
         "contents": {"it": article["title"], "en": article["title"]},
         "subtitle": {"it": article["message"], "en": article["message"]},
