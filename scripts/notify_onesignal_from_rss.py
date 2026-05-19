@@ -208,7 +208,6 @@ def send_onesignal_push(article):
         "headings": {"it": "ARTBOOMS", "en": "ARTBOOMS"},
         "contents": {"it": article["title"], "en": article["title"]},
         "subtitle": {"it": article["message"], "en": article["message"]},
-        "url": article["url"],
         "web_url": article["url"],
         "chrome_web_icon": "https://app.artbooms.com/icons/icon-192.png",
         "chrome_web_badge": "https://app.artbooms.com/icons/icon-192.png",
