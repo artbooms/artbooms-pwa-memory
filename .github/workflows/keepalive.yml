@@ -33,7 +33,7 @@ jobs:
 
       - name: Commit keepalive update
         run: |
-          if git diff --quiet -- data/github-actions-keepalive.txt; then
+          if [ -z "$(git status --porcelain -- data/github-actions-keepalive.txt)" ]; then
             echo "No keepalive changes to commit."
             exit 0
           fi
