@@ -1,0 +1,82 @@
+name: Debug OneSignal message
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Read OneSignal message
+        env:
+          ONESIGNAL_APP_ID: 5e419b44-dbb3-4af3-ae22-e921c52aa02f
+          ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
+          MESSAGE_ID: f2b37d24-4ba5-4610-83c4-6af9917448b8
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          app_id = os.environ["ONESIGNAL_APP_ID"]
+          api_key = os.environ["ONESIGNAL_REST_API_KEY"]
+          message_id = os.environ["MESSAGE_ID"]
+
+          url = f"https://api.onesignal.com/api/v1/notifications/{message_id}?app_id={app_id}"
+
+          req = urllib.request.Request(
+              url,
+              headers={
+                  "Authorization": f"Basic {api_key}",
+                  "Accept": "application/json",
+              },
+              method="GET",
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  raw = response.read().decode("utf-8")
+                  data = json.loads(raw)
+          except Exception as exc:
+              print("ERRORE DURANTE LA LETTURA DEL MESSAGGIO:")
+              print(repr(exc))
+              raise
+
+          interesting_keys = [
+              "id",
+              "name",
+              "headings",
+              "contents",
+              "subtitle",
+              "url",
+              "web_url",
+              "app_url",
+              "chrome_web_icon",
+              "chrome_web_image",
+              "chrome_web_badge",
+              "big_picture",
+              "small_icon",
+              "large_icon",
+              "adm_big_picture",
+              "buttons",
+              "web_buttons",
+              "data",
+              "included_segments",
+              "send_after",
+              "completed_at",
+              "successful",
+              "received",
+              "failed",
+              "errored",
+          ]
+
+          print("=== ONESIGNAL MESSAGE DEBUG ===")
+          for key in interesting_keys:
+              if key in data:
+                  print(f"\n--- {key} ---")
+                  print(json.dumps(data[key], ensure_ascii=False, indent=2))
+
+          print("\n=== TUTTE LE CHIAVI DISPONIBILI ===")
+          print(", ".join(sorted(data.keys())))
+          PY
