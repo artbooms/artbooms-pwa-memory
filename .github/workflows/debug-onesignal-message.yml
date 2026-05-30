@@ -12,7 +12,7 @@ jobs:
         env:
           ONESIGNAL_APP_ID: 5e419b44-dbb3-4af3-ae22-e921c52aa02f
           ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
-          MESSAGE_ID: f2b37d24-4ba5-4610-83c4-6af9917448b8
+          MESSAGE_ID: 2ca8bbb4-bd1c-4d28-88e4-e733ed7ada80
         run: |
           python3 - <<'PY'
           import json
