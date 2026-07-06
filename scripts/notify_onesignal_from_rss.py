@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-RSS_URL = "https://artbooms-rss-x6pc.onrender.com/rss"
+RSS_URL = "https://rss.artbooms.com/rss"
 ONESIGNAL_APP_ID = "5e419b44-dbb3-4af3-ae22-e921c52aa02f"
 STATE_FILE = Path("data/last-notified.json")
 ONESIGNAL_API_URL = "https://api.onesignal.com/notifications"
