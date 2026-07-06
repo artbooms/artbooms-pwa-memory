@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 
-RSS_FEED_URL = "https://artbooms-rss-x6pc.onrender.com/rss"
+RSS_FEED_URL = "https://rss.artbooms.com/rss"
 OUTPUT_PATH = "memory-data.json"
 
 HEADERS = {
