@@ -1,8 +1,6 @@
 name: Notify OneSignal from RSS
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
