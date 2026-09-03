@@ -9,8 +9,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: artbooms-github-actions-keepalive
+  group: artbooms-pwa-memory-writes
   cancel-in-progress: false
+  queue: max
 
 jobs:
   keepalive:
@@ -18,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
