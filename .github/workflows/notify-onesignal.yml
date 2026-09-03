@@ -9,8 +9,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: artbooms-onesignal-rss-notifier
+  group: artbooms-pwa-memory-writes
   cancel-in-progress: false
+  queue: max
 
 jobs:
   notify:
@@ -18,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
